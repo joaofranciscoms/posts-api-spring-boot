@@ -6,6 +6,7 @@ import io.github.joaofranciscoms.posts_api_spring_security.controller.dto.Usuari
 import io.github.joaofranciscoms.posts_api_spring_security.model.Usuario;
 import io.github.joaofranciscoms.posts_api_spring_security.repository.UsuarioRepository;
 import io.github.joaofranciscoms.posts_api_spring_security.service.TokenService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,7 @@ public class AuthenticationController {
     private TokenService tokenService;
 
     @PostMapping("/login")
+    @Operation(summary = "Login", description = "Autentica e devolve um token JWT", security = {})
     public ResponseEntity<Object> login(@RequestBody @Valid UsuarioDTO data){
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.password());
         var auth = authenticationManager.authenticate(usernamePassword);
@@ -43,6 +45,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/register")
+    @Operation(summary = "Registrar", description = "Registra um usuário", security = {})
     public ResponseEntity<Void> register(@RequestBody UsuarioDetalhesDTO dto){
         if(usuarioRepository.findByLogin(dto.login()) != null){
             return ResponseEntity.badRequest().build();
