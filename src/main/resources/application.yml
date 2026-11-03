@@ -20,14 +20,6 @@ spring:
     properties:
       hibernate.format_sql: true
 
-management:
-  server:
-    port: 9090
-  endpoints:
-    web:
-      exposure:
-        include: '*'
-
 springdoc:
   override-with-generic-response: false
 
