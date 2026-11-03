@@ -1,184 +1,200 @@
 ## Posts API
- 
+
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring](https://img.shields.io/badge/Spring-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![SpringSecurity](https://img.shields.io/badge/Spring_Security-6DB33F?style=for-the-badge&logo=Spring-Security&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=json-web-tokens&logoColor=white)
- 
-Este projeto se trata de uma API REST de postagens e foi construído utilizando Spring Boot, Spring Data JPA, Spring Security, JWT e PostgreSQL como banco de dados.
- 
-## Versões utilizadas
- 
+
+API REST de postagens e comentários construída com Spring Boot, Spring Data JPA, Spring Security, JWT e PostgreSQL. A autenticação é *stateless*: o usuário faz login, recebe um token JWT e o envia no cabeçalho `Authorization` das demais requisições. O acesso aos recursos é controlado por perfis (`ADMIN`, `AUTOR` e `LEITOR`).
+
+## Tecnologias e versões
+
 - **Java**: 21
 - **Spring Boot**: 3.3.4
 - **Spring Framework**: 6.1.13 (versão gerenciada automaticamente pelo `spring-boot-starter-parent` 3.3.4)
+- **Spring Security** com autenticação via **JWT** (biblioteca `java-jwt` da Auth0, algoritmo HMAC256) e senhas criptografadas com **BCrypt**
+- **PostgreSQL** como banco de dados
+- **MapStruct** e **Lombok**
+- **springdoc-openapi** (anotações OpenAPI nos controllers)
+
 ## Boas práticas adotadas
- 
-Além da estrutura básica da API, o projeto segue algumas boas práticas comuns em aplicações Spring:
 
-Tratamento centralizado de exceções: uma classe @RestControllerAdvice com métodos @ExceptionHandler captura as exceções lançadas pela aplicação e retorna respostas de erro padronizadas, evitando tratamento repetido em cada controller.
+- **Tratamento centralizado de exceções**: uma classe `@RestControllerAdvice` (`GlobalExceptionHandler`) captura exceções como corpo de requisição malformado, falha de autenticação, acesso negado e recurso não encontrado, devolvendo respostas de erro em formato padronizado:
 
-DTOs (Data Transfer Objects): as entidades não são expostas diretamente pelos endpoints. Objetos de requisição e resposta são representados por DTOs, isolando o modelo de domínio da camada de API.
+  ```json
+  {
+      "timestamp": "2025-01-01T12:00:00",
+      "status": 401,
+      "error": "Login ou senha inválidos"
+  }
+  ```
 
-Mapeamento com MapStruct: a conversão entre entidades e DTOs é feita por interfaces mapeadas com MapStruct, eliminando conversões manuais repetitivas e reduzindo a chance de erros.
-
-Os dados recebidos nas requisições passam por validação (Bean Validation) antes de chegar à camada de serviço, garantindo consistência dos dados e retornando erros de forma clara.
-
-Busca paginada: os endpoints de listagem (como GET /api/posts e GET /api/comentarios) suportam paginação, evitando retornar grandes volumes de dados de uma só vez e melhorando a performance da API.
+- **DTOs (Data Transfer Objects)**: as entidades não são expostas diretamente pelos endpoints. Objetos de requisição e resposta são representados por DTOs, isolando o modelo de domínio da camada de API.
+- **Mapeamento com MapStruct**: a conversão entre entidades e DTOs é feita por mappers do MapStruct, eliminando conversões manuais repetitivas.
+- **Validação (Bean Validation)**: o login, a criação de posts e a criação de comentários validam o corpo da requisição com `@Valid`. Em caso de dados inválidos, a API responde com `400 Bad Request`.
+- **Busca paginada**: os endpoints de listagem (`GET /api/posts` e `GET /api/comentarios`) são paginados, evitando retornar grandes volumes de dados de uma só vez.
+- **Autorização por perfil**: as regras de acesso são declaradas nos controllers com `@PreAuthorize`.
 
 ---
- 
+
 ## Como executar o projeto
- 
-1. Clone o repositório
-```
-https://github.com/joaofranciscoms/posts-api-spring-boot.git
-```
- 
-2. Instale o PostgreSQL, crie um banco de dados e dê a ele o nome de `posts-platform`.
+
+1. Clone o repositório:
+   ```
+   https://github.com/joaofranciscoms/posts-api-spring-boot.git
+   ```
+2. Instale o PostgreSQL e crie um banco de dados chamado `posts-db`. As tabelas são criadas e atualizadas automaticamente pelo Hibernate (`ddl-auto: update`).
 3. Instale o Postman e crie uma Collection com o nome de sua preferência.
 4. Abra o projeto na sua IDE (recomendo o IntelliJ) e aguarde a instalação automática das dependências via Maven.
-5. Caso deseje, é possível abrir o `application.yml` e alterar algumas configurações. Não recomendo alterar nada, pois a aplicação já está pronta para uso.
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/posts-platform
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:postgres}
-```
-```yaml
-app:
-  default-admin:
-    email: ${ADMIN_EMAIL:admin@sistema.com}
-    password: ${ADMIN_PASSWORD:AdminLocal123!}
-```
- 
-> **Por que as credenciais estão expostas?** As credenciais do banco de dados (`username`/`password`) e do usuário ADMIN gerado por Database Seeding (`email`/`password`) aparecem expostas por padrão no `application.yml` de propósito. A ideia é que, após clonar o repositório, a API já suba pronta para uso, sem exigir configuração adicional de variáveis de ambiente — basta ter o PostgreSQL instalado com o banco `posts-platform` criado.
->
-> Todos esses valores são apenas defaults e podem ser sobrescritos através das variáveis de ambiente `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `ADMIN_EMAIL` e `ADMIN_PASSWORD`, como indicado na sintaxe `${VARIAVEL:valor-padrao}`.
->
-> **Importante**: esses valores padrão servem apenas para ambiente local de desenvolvimento/testes. Em produção, é essencial sobrescrever essas variáveis com credenciais seguras, nunca utilizando os valores expostos aqui.
- 
-6. Suba a aplicação.
-A API estará disponível em `http://localhost:8080`.
- 
+5. Se necessário, ajuste as configurações no `application.yml`. Os valores padrão já funcionam em um PostgreSQL local:
+   ```yaml
+   spring:
+     datasource:
+       url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/posts-db}
+       username: ${DATABASE_USERNAME:postgres}
+       password: ${DATABASE_PASSWORD:postgres}
+   ```
+   ```yaml
+   app:
+     jwt:
+       secret: cG9zdHNhcGlqd3RzZWNyZXQ=
+   ```
+
+   > **Por que as credenciais estão expostas?** As credenciais do banco de dados e o segredo do JWT aparecem no `application.yml` de propósito: a ideia é que, após clonar o repositório, a API já suba pronta para uso, bastando ter o PostgreSQL instalado e o banco `posts-db` criado.
+   >
+   > As configurações do banco podem ser sobrescritas pelas variáveis de ambiente `DATABASE_URL`, `DATABASE_USERNAME` e `DATABASE_PASSWORD`, como indicado na sintaxe `${VARIAVEL:valor-padrao}`. O segredo do JWT pode ser sobrescrito pela variável de ambiente `APP_JWT_SECRET`.
+   >
+   > **Importante**: esses valores padrão servem apenas para ambiente local de desenvolvimento/testes. Em produção, é essencial sobrescrevê-los com credenciais seguras, nunca utilizando os valores expostos aqui.
+
+6. Suba a aplicação. A API estará disponível em `http://localhost:8080`.
+
 ---
- 
-## Autenticação - Client
- 
-Ao subir a aplicação, um usuário com a role `ADMIN` já estará disponível por meio de Database Seeding. Caso a configuração não tenha sido alterada no `application.yml`, o username será `admin` e a senha será `AdminLocal123!`.
- 
-Com as credenciais do ADMIN, será possível criar um Client fazendo uma requisição ao endpoint `POST http://localhost:8080/api/clients`, o que possibilita a geração de um token JWT utilizando o Grant Type Authorization Code.
- 
-O fluxo é:
- 
-1. No Postman, adicione uma requisição `POST` com a URL `http://localhost:8080/api/clients`.
-2. Selecione o formato JSON no Body e cole:
+
+## Autenticação
+
+A API usa JWT. Apenas `POST /auth/login` e `POST /auth/register` são públicos; **todos os outros endpoints exigem um token válido**, inclusive as consultas (`GET`).
+
+### 1. Registrar um usuário
+
+No Postman, crie uma requisição `POST` para `http://localhost:8080/auth/register`, selecione o formato JSON (`Body > raw > JSON`) e envie:
+
 ```json
 {
-    "clientId": "client-id",
-    "clientSecret": "client-secret",
-    "redirectURI": "http://localhost:8080/authorized",
-    "scopes": ["AUTOR", "LEITOR"]
-}
-```
- 
-3. Vá até a aba Authorization, deixe o Auth Type como Basic Auth e insira as credenciais do Admin.
-4. Confira se está tudo de acordo e envie a requisição.
-## Criação de um usuário
- 
-1. No Postman, adicione uma requisição `POST` com a URL `http://localhost:8080/api/usuarios`, selecione o formato JSON e utilize os exemplos abaixo para a criação de usuário.
-```json
-{
-    "login": "Joao",
-    "password": "joao123",
-    "email": "joao@gmail.com",
+    "login": "usuarioTeste",
+    "password": "usuarioTeste123",
     "role": "AUTOR"
 }
 ```
+
+Perfis disponíveis: `ADMIN`, `AUTOR` e `LEITOR`. A resposta é `200 OK` sem corpo; se o login já existir, a resposta é `400 Bad Request`.
+
+### 2. Fazer login e obter o token
+
+Crie uma requisição `POST` para `http://localhost:8080/auth/login` com o corpo:
+
 ```json
 {
-    "login": "Francisco",
-    "password": "francisco123",
-    "email": "francisco@gmail.com",
-    "role": "LEITOR"
+    "login": "usuarioTeste",
+    "password": "usuarioTeste123"
 }
 ```
- 
-## Autenticação - Obtenção do token JWT
- 
-1. Tendo concluído a criação do Client e do Usuário, ainda no Postman, adicione uma requisição `GET` e vá direto para a aba Authorization.
-2. Selecione OAuth 2.0 em Auth Type.
-3. Preencha todos os campos de acordo com a imagem abaixo. Caso tenha cadastrado outro `client-id` e/ou outro `client-secret`, insira-os nos campos correspondentes.
 
-![Campos OAuth2](imagens/campos-oauth2.png)
- 
-4. Em seguida, desça até o fim da página e clique em "Get New Access Token". Uma página de login irá se abrir; insira as credenciais do usuário AUTOR ou LEITOR criado.
-Mesmo que o escopo do Client abranja AUTOR e LEITOR, o token JWT carregará, como authorities, a role relacionada ao usuário que fez login no formulário.
+A resposta traz o token JWT, que expira em **2 horas**. Credenciais inválidas retornam `401 Unauthorized`.
 
-![Tela login](imagens/tela-login.png)
- 
-6. Após a página de login se fechar, um token JWT será gerado e já será possível acessar os demais endpoints da API com base na role do usuário.
-Em endpoints que necessitam de roles, use o Auth Type como Bearer Token e cole o token JWT recebido; feito isso, será possível fazer as requisições.
+### 3. Usar o token nas requisições
 
-Basta clicar em Proceed
+Em cada requisição aos demais endpoints, envie o cabeçalho:
 
-![Token gerado](imagens/access-token.png)
+```
+Authorization: Bearer <seu-token>
+```
 
->**Nota sobre a chave RSA de assinatura dos tokens**
->
->O par de chaves RSA usado para assinar e validar os tokens JWT é gerado em memória a cada vez que a aplicação sobe, e não é persistido em nenhum lugar. Isso significa que, a cada reinicialização da API, uma nova chave é criada — e, consequentemente, todos os tokens JWT emitidos antes do reinício deixam de ser válidos, já que foram assinados com a chave anterior.
->
->Essa abordagem é adequada para desenvolvimento e testes locais, por simplificar a configuração (não é necessário gerenciar arquivos de keystore ou variáveis de ambiente com chaves). Em um ambiente de produção, porém, o ideal seria persistir a chave (por exemplo, em um keystore) para garantir que os tokens continuem válidos entre reinicializações e para permitir múltiplas instâncias da aplicação compartilhando a mesma chave.
- 
+No Postman, isso pode ser feito pela aba **Authorization**, escolhendo o tipo **Bearer Token** e colando o token. Para facilitar, configure a autorização na própria Collection, para que todas as requisições herdem o token.
+
 ---
- 
-## APIs e CRUDs disponíveis
- 
+
+## Endpoints e permissões
+
 ### Auth
- 
-| Método | URL | Descrição              | Acesso                          |
-|:------:|:----|:------------------------|:---------------------------------|
-| `GET`  | —   | Devolve um token JWT     | Pela aba Authorization no Postman |
- 
-### Client
- 
-| Método | URL             | Descrição          | Formato |
-|:------:|:----------------|:---------------------|:-------:|
-| `POST` | `/api/clients`  | Registra um client   | JSON    |
- 
-### Usuário
- 
-| Método | URL                   | Descrição            | Formato |
-|:------:|:----------------------|:-----------------------|:-------:|
-| `POST` | `/api/usuarios`       | Cadastra um usuário    | JSON    |
-| `GET`  | `/api/usuarios/{id}`  | Busca um usuário       | —       |
- 
+
+| Método | URL              | Descrição                         | Acesso  |
+|:------:|:-----------------|:----------------------------------|:--------|
+| `POST` | `/auth/register` | Registra um usuário               | Público |
+| `POST` | `/auth/login`    | Autentica e devolve um token JWT  | Público |
+
 ### Post
- 
-| Método   | URL              | Descrição               | Formato |
-|:--------:|:-----------------|:---------------------------|:-------:|
-| `POST`   | `/api/posts`     | Cria um post               | JSON    |
-| `GET`    | `/api/posts/{id}`| Busca um post               | —       |
-| `PUT`    | `/api/posts/{id}`| Atualiza um post           | JSON    |
-| `DELETE` | `/api/posts/{id}`| Deleta um post              | —       |
-| `GET`    | `/api/posts`     | Filtra/lista posts          | —       |
- 
+
+| Método   | URL               | Descrição                         | Perfis permitidos              |
+|:--------:|:------------------|:----------------------------------|:-------------------------------|
+| `POST`   | `/api/posts`      | Cria um post                      | `AUTOR`, `ADMIN`               |
+| `GET`    | `/api/posts/{id}` | Busca um post                     | Qualquer usuário autenticado   |
+| `PUT`    | `/api/posts/{id}` | Atualiza um post                  | `AUTOR`, `ADMIN`               |
+| `DELETE` | `/api/posts/{id}` | Deleta um post                    | `AUTOR`, `ADMIN`               |
+| `GET`    | `/api/posts`      | Filtra/lista posts (paginado)     | Qualquer usuário autenticado   |
+
 ### Comentário
- 
-| Método   | URL                              | Descrição                  | Formato |
-|:--------:|:----------------------------------|:------------------------------|:-------:|
-| `POST`   | `/api/posts/{id}/comentarios`    | Cria um comentário            | JSON    |
-| `GET`    | `/api/comentarios/{id}`          | Busca um comentário            | —       |
-| `PUT`    | `/api/comentarios/{id}`          | Atualiza um comentário        | JSON    |
-| `DELETE` | `/api/comentarios/{id}`          | Deleta um comentário           | —       |
-| `GET`    | `/api/comentarios`               | Filtra/lista comentários       | —       |
- 
+
+| Método   | URL                                | Descrição                              | Perfis permitidos              |
+|:--------:|:-----------------------------------|:---------------------------------------|:-------------------------------|
+| `POST`   | `/api/posts/{idPost}/comentarios`  | Cria um comentário em um post          | `AUTOR`, `ADMIN`, `LEITOR`     |
+| `GET`    | `/api/comentarios/{id}`            | Busca um comentário                    | Qualquer usuário autenticado   |
+| `PUT`    | `/api/comentarios/{id}`            | Atualiza um comentário                 | `AUTOR`                        |
+| `DELETE` | `/api/comentarios/{id}`            | Deleta um comentário                   | `AUTOR`, `ADMIN`, `LEITOR`     |
+| `GET`    | `/api/comentarios`                 | Filtra/lista comentários (paginado)    | Qualquer usuário autenticado   |
+
+Os identificadores (`{id}` e `{idPost}`) são UUIDs.
+
+### Filtros e paginação
+
+Os endpoints de listagem aceitam os seguintes parâmetros de consulta (*query params*), todos opcionais:
+
+| Parâmetro        | Endpoints                           | Descrição                               | Padrão |
+|:-----------------|:------------------------------------|:----------------------------------------|:------:|
+| `titulo`         | `GET /api/posts`                    | Filtra posts pelo título                | —      |
+| `conteudo`       | `GET /api/posts`, `GET /api/comentarios` | Filtra pelo conteúdo               | —      |
+| `pagina`         | `GET /api/posts`, `GET /api/comentarios` | Número da página (começa em 0)     | `0`    |
+| `tamanho-pagina` | `GET /api/posts`, `GET /api/comentarios` | Quantidade de itens por página     | `10`   |
+
+Exemplo:
+
+```
+GET http://localhost:8080/api/posts?titulo=lorem&pagina=0&tamanho-pagina=5
+```
+
+### Códigos de resposta comuns
+
+| Código | Significado                                                            |
+|:------:|:-----------------------------------------------------------------------|
+| `200`  | Consulta realizada com sucesso                                         |
+| `201`  | Recurso criado (a URL do novo recurso vem no cabeçalho `Location`)     |
+| `204`  | Atualização ou exclusão realizada com sucesso                          |
+| `400`  | Erro de validação ou corpo da requisição ausente/malformado            |
+| `401`  | Token ausente/inválido ou login e senha incorretos                     |
+| `403`  | O perfil do usuário não tem permissão para o recurso                   |
+| `404`  | Recurso não encontrado                                                 |
+
 ---
- 
-## JSONs disponíveis
- 
+
+## Exemplos de JSON
+
+**Registrar usuário** — `POST /auth/register`
+```json
+{
+    "login": "joao",
+    "password": "joao123",
+    "role": "AUTOR"
+}
+```
+
+**Login** — `POST /auth/login`
+```json
+{
+    "login": "joao",
+    "password": "joao123"
+}
+```
+
 **Criar Post** — `POST /api/posts`
 ```json
 {
@@ -186,7 +202,7 @@ Basta clicar em Proceed
     "conteudo": "Eum voluptatem beatae itaque, ut non autem iusto inventore ratione, praesentium provident facilis. Inventore cumque maxime nulla adipisci voluptatem odit veniam nesciunt."
 }
 ```
- 
+
 **Atualizar Post** — `PUT /api/posts/{id}`
 ```json
 {
@@ -194,37 +210,17 @@ Basta clicar em Proceed
     "conteudo": "numquam omnis! Et facilis molestias cupiditate culpa vel sapiente."
 }
 ```
- 
-**Criar Comentário** — `POST /api/posts/{id}/comentarios`
+
+**Criar Comentário** — `POST /api/posts/{idPost}/comentarios`
 ```json
 {
     "conteudo": "At error, aperiam qui incidunt non accusantium laborum quae inventore architecto officiis ratione sapiente perspiciatis eum!"
 }
 ```
- 
+
 **Atualizar Comentário** — `PUT /api/comentarios/{id}`
 ```json
 {
     "conteudo": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Eligendi, nostrum magnam illo a saepe pariatur."
-}
-```
- 
-**Cadastrar um Usuário** — `POST /api/usuarios`
-```json
-{
-    "login": "joao",
-    "password": "joao123",
-    "email": "joao@gmail.com",
-    "role": "AUTOR"
-}
-```
- 
-**Registrar um Client** — `POST /api/clients`
-```json
-{
-    "clientId": "client-id",
-    "clientSecret": "client-secret",
-    "redirectURI": "http://localhost:8080/authorized",
-    "scopes": ["AUTOR", "LEITOR"]
 }
 ```
