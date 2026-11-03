@@ -1,11 +1,13 @@
 package io.github.joaofranciscoms.posts_api_spring_security.controller;
 
+import io.github.joaofranciscoms.posts_api_spring_security.common.AutoriaUtil;
 import io.github.joaofranciscoms.posts_api_spring_security.controller.dto.AtualizarPostDTO;
 import io.github.joaofranciscoms.posts_api_spring_security.controller.dto.CadastroPostDTO;
 import io.github.joaofranciscoms.posts_api_spring_security.controller.dto.RespostaPostDTO;
 import io.github.joaofranciscoms.posts_api_spring_security.controller.mapper.CadastroPostMapper;
 import io.github.joaofranciscoms.posts_api_spring_security.controller.mapper.RespostaPostMapper;
 import io.github.joaofranciscoms.posts_api_spring_security.model.Post;
+import io.github.joaofranciscoms.posts_api_spring_security.model.Usuario;
 import io.github.joaofranciscoms.posts_api_spring_security.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -34,14 +37,16 @@ public class PostController implements GenericController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('AUTOR', 'ADMIN')")
-    @Operation(summary = "Salvar", description = "Salva um novo post")
+    @Operation(summary = "Salvar", description = "Salva um novo post em nome do usuário autenticado")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Cadastrado com sucesso."),
             @ApiResponse(responseCode = "401", description = "Não autorizado. Token de acesso ausente ou inválido."),
             @ApiResponse(responseCode = "400", description = "Erro de validação."),
     })
-    public ResponseEntity<Object> salvarPost(@RequestBody @Valid CadastroPostDTO postDTO){
+    public ResponseEntity<Object> salvarPost(@RequestBody @Valid CadastroPostDTO postDTO,
+                                             @AuthenticationPrincipal Usuario usuarioLogado){
         Post post = cadastroPostMapper.toEntity(postDTO);
+        post.setAutor(usuarioLogado);
         service.save(post);
         URI location = getURI(post.getId());
         return ResponseEntity.created(location).build();
@@ -68,18 +73,21 @@ public class PostController implements GenericController {
 
     @DeleteMapping("{id}")
     @PreAuthorize("hasAnyRole('AUTOR', 'ADMIN')")
-    @Operation(summary = "Deletar", description = "Deleta um autor")
+    @Operation(summary = "Deletar", description = "Deleta um post. Somente o autor do post ou um ADMIN pode deletá-lo")
     @ApiResponses({
             @ApiResponse(responseCode = "404", description = "Post não encontrado."),
             @ApiResponse(responseCode = "401", description = "Não autorizado. Token de acesso ausente ou inválido."),
+            @ApiResponse(responseCode = "403", description = "Usuário não é o autor do post."),
             @ApiResponse(responseCode = "204", description = "Post deletado com sucesso."),
     })
-    public ResponseEntity<Void> deletarPost(@PathVariable("id") String id){
+    public ResponseEntity<Void> deletarPost(@PathVariable("id") String id,
+                                            @AuthenticationPrincipal Usuario usuarioLogado){
         var idPost = UUID.fromString(id);
         Optional<Post> postOptional = service.findById(idPost);
 
         if(postOptional.isPresent()){
             Post post = postOptional.get();
+            AutoriaUtil.verificarAutoriaOuAdmin(post.getAutor(), usuarioLogado);
             service.delete(post);
             return ResponseEntity.noContent().build();
         }
@@ -89,18 +97,22 @@ public class PostController implements GenericController {
 
     @PutMapping("{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'AUTOR')")
-    @Operation(summary = "Atualizar", description = "Atualiza um post")
+    @Operation(summary = "Atualizar", description = "Atualiza um post. Somente o autor do post ou um ADMIN pode atualizá-lo")
     @ApiResponses({
             @ApiResponse(responseCode = "404", description = "Post não encontrado."),
             @ApiResponse(responseCode = "401", description = "Não autorizado. Token de acesso ausente ou inválido."),
+            @ApiResponse(responseCode = "403", description = "Usuário não é o autor do post."),
             @ApiResponse(responseCode = "204", description = "Post atualizado com sucesso."),
     })
-    public ResponseEntity<Void> atualizarPost(@PathVariable("id") String id, @RequestBody AtualizarPostDTO postDTO){
+    public ResponseEntity<Void> atualizarPost(@PathVariable("id") String id,
+                                              @RequestBody AtualizarPostDTO postDTO,
+                                              @AuthenticationPrincipal Usuario usuarioLogado){
         var idPost = UUID.fromString(id);
         Optional<Post> postOptional = service.findById(idPost);
 
         if(postOptional.isPresent()){
             Post post = postOptional.get();
+            AutoriaUtil.verificarAutoriaOuAdmin(post.getAutor(), usuarioLogado);
 
             post.setTitulo(postDTO.titulo());
             post.setConteudo(postDTO.conteudo());
