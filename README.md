@@ -16,7 +16,7 @@ API REST de postagens e comentários construída com Spring Boot, Spring Data JP
 - **Spring Security** com autenticação via **JWT** (biblioteca `java-jwt` da Auth0, algoritmo HMAC256) e senhas criptografadas com **BCrypt**
 - **PostgreSQL** como banco de dados
 - **MapStruct** e **Lombok**
-- **springdoc-openapi** (anotações OpenAPI nos controllers)
+- **springdoc-openapi** (Swagger UI e anotações OpenAPI nos controllers)
 
 ## Boas práticas adotadas
 
@@ -89,6 +89,8 @@ No Postman, crie uma requisição `POST` para `http://localhost:8080/auth/regist
 
 Perfis disponíveis: `ADMIN`, `AUTOR` e `LEITOR`. A resposta é `200 OK` sem corpo; se o login já existir, a resposta é `400 Bad Request`.
 
+> **Atenção**: o endpoint de registro é público e aceita o campo `role`. Esse recurso está presente a fim de nos permitir realizer testes, em um ambiente real essa prática não é recomendada.
+
 ### 2. Fazer login e obter o token
 
 Crie uma requisição `POST` para `http://localhost:8080/auth/login` com o corpo:
@@ -129,8 +131,8 @@ No Postman, isso pode ser feito pela aba **Authorization**, escolhendo o tipo **
 |:--------:|:------------------|:----------------------------------|:-------------------------------|
 | `POST`   | `/api/posts`      | Cria um post                      | `AUTOR`, `ADMIN`               |
 | `GET`    | `/api/posts/{id}` | Busca um post                     | Qualquer usuário autenticado   |
-| `PUT`    | `/api/posts/{id}` | Atualiza um post                  | `AUTOR`, `ADMIN`               |
-| `DELETE` | `/api/posts/{id}` | Deleta um post                    | `AUTOR`, `ADMIN`               |
+| `PUT`    | `/api/posts/{id}` | Atualiza um post (só o autor ou `ADMIN`) | `AUTOR`, `ADMIN`        |
+| `DELETE` | `/api/posts/{id}` | Deleta um post (só o autor ou `ADMIN`)   | `AUTOR`, `ADMIN`        |
 | `GET`    | `/api/posts`      | Filtra/lista posts (paginado)     | Qualquer usuário autenticado   |
 
 ### Comentário
@@ -139,11 +141,18 @@ No Postman, isso pode ser feito pela aba **Authorization**, escolhendo o tipo **
 |:--------:|:-----------------------------------|:---------------------------------------|:-------------------------------|
 | `POST`   | `/api/posts/{idPost}/comentarios`  | Cria um comentário em um post          | `AUTOR`, `ADMIN`, `LEITOR`     |
 | `GET`    | `/api/comentarios/{id}`            | Busca um comentário                    | Qualquer usuário autenticado   |
-| `PUT`    | `/api/comentarios/{id}`            | Atualiza um comentário                 | `AUTOR`                        |
-| `DELETE` | `/api/comentarios/{id}`            | Deleta um comentário                   | `AUTOR`, `ADMIN`, `LEITOR`     |
+| `PUT`    | `/api/comentarios/{id}`            | Atualiza um comentário (só o autor ou `ADMIN`) | `AUTOR`, `ADMIN`       |
+| `DELETE` | `/api/comentarios/{id}`            | Deleta um comentário (só o autor ou `ADMIN`) | `AUTOR`, `ADMIN`, `LEITOR` |
 | `GET`    | `/api/comentarios`                 | Filtra/lista comentários (paginado)    | Qualquer usuário autenticado   |
 
 Os identificadores (`{id}` e `{idPost}`) são UUIDs.
+
+### Perfis e autoria
+
+- Os perfis são hierárquicos: `ADMIN` inclui as permissões de `AUTOR` e `LEITOR`, e `AUTOR` inclui as de `LEITOR`.
+- Ao criar um post ou comentário, o usuário autenticado (identificado pelo token) é gravado automaticamente como **autor**, na coluna `id_autor`. Esse dado não é enviado no corpo da requisição.
+- Atualizar ou deletar um post/comentário só é permitido ao **autor** do recurso ou a um `ADMIN`. Outros usuários recebem `403 Forbidden`. Recursos antigos, sem autor registrado, só podem ser alterados por `ADMIN`.
+- Comentar em um post inexistente retorna `404 Not Found`.
 
 ### Filtros e paginação
 
@@ -173,6 +182,17 @@ GET http://localhost:8080/api/posts?titulo=lorem&pagina=0&tamanho-pagina=5
 | `401`  | Token ausente/inválido ou login e senha incorretos                     |
 | `403`  | O perfil do usuário não tem permissão para o recurso                   |
 | `404`  | Recurso não encontrado                                                 |
+
+---
+
+## Documentação interativa (Swagger)
+
+Com a aplicação em execução, a documentação OpenAPI fica disponível em:
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- Especificação OpenAPI (JSON): `http://localhost:8080/v3/api-docs`
+
+Para testar os endpoints protegidos, faça login em `POST /auth/login`, clique em **Authorize** e cole o token (sem o prefixo `Bearer`).
 
 ---
 
