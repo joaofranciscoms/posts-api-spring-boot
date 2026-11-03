@@ -89,7 +89,7 @@ No Postman, crie uma requisição `POST` para `http://localhost:8080/auth/regist
 
 Perfis disponíveis: `ADMIN`, `AUTOR` e `LEITOR`. A resposta é `200 OK` sem corpo; se o login já existir, a resposta é `400 Bad Request`.
 
-> **Atenção**: o endpoint de registro é público e aceita o campo `role`. Esse recurso está presente a fim de nos permitir realizer testes, em um ambiente real essa prática não é recomendada.
+> **Atenção**: o endpoint de registro é público e aceita o campo `role`. Esse recurso está presente a fim de nos permitir realizar testes, estou ciente de que em um ambiente real essa prática não é recomendada.
 
 ### 2. Fazer login e obter o token
 
